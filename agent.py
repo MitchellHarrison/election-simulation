@@ -7,7 +7,7 @@ database = SqliteDatabase("simulation.db")
 class Agent(Model):
     # this starst with an underscore to differentiate it from the id()
     # function that is built into python
-    _id = IntegerField(default = 1)
+    agent_id = IntegerField(default = 1)
 
     # incrimented at each model iteration for ease of storage in a single table
     model_iteration = IntegerField(default = 0)
@@ -18,7 +18,7 @@ class Agent(Model):
     race = CharField(default = "White")
     sex = CharField(default = "M")
     color = CharField(default = "red")
-    education = CharField(default = "some college")
+    education = CharField(default = "Some college")
 
 
     # establish initial turnout decision distribution
@@ -31,6 +31,7 @@ class Agent(Model):
     class Meta:
         database = database
         table_name = "sim"
+        primary_key = False
 
 
     # this will update the mean (mu) and variance (s2) of the 

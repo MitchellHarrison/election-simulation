@@ -3,6 +3,7 @@ from environment import Environment
 from peewee import *
 
 POP_SIZE = 500
+MAX_ITERATIONS = 2
 
 database = SqliteDatabase("simulation.db")
 
@@ -14,4 +15,5 @@ database.create_tables([Agent], safe = True)
 
 if __name__ == "__main__":
     env = Environment(pop_size = POP_SIZE)
-
+    for _ in range(MAX_ITERATIONS):
+        env.iterate()

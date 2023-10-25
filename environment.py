@@ -2,7 +2,8 @@ import numpy as np
 from agent import Agent
 
 # bin definitions
-AGE_BINS = [(18,29), (30,49), (50,64), (65,77)]
+MAX_AGE = 77
+AGE_BINS = [(18,29), (30,49), (50,64), (65,MAX_AGE)]
 
 # median household income from Capital One
 INCOME_BINS = [45604, 59150, 59228 , 57252]
@@ -33,6 +34,7 @@ def average_lists(list1, list2) -> list:
 
     return avg_lists_as_pct
 
+
 AGE_DIST = average_lists(voter_age, nonvoter_age)
 RACE_DIST = average_lists(voter_race, nonvoter_race)
 EDU_DIST = average_lists(voter_edu, nonvoter_edu)
@@ -49,6 +51,7 @@ class Environment:
         self.p_blue = 1 - p_red
         self.pop_size = pop_size
         self.prev_winner = past_winners
+        self.max_agent_id = 0
 
         # set environment probability distributions
         self.age_dist = age_dist
@@ -71,7 +74,7 @@ class Environment:
             agent = Agent()
 
             # create an agent from relevant distributions passed to the env
-            agent._id = agent_id
+            agent.agent_id = agent_id
             age_bin = np.random.choice([0, 1, 2, 3], p = self.age_dist)
             age_range = AGE_BINS[age_bin]
             agent.age = np.random.randint(age_range[0], age_range[1] + 1, 1)
@@ -87,8 +90,19 @@ class Environment:
             # append this new agent to the environment's agents list
             agents.append(agent)
             agent_id += 1
+            self.max_agent_id += 1
 
             # store starting contitions
+            insert = {agent_id: agent.agent_id, 
+                      "model_iteration": agent.model_iteration,
+                      "income": agent.income,
+                      "race": agent.race,
+                      "sex": agent.sex,
+                      "color": agent.color,
+                      "education": agent.education,
+                      "turnout_mu": agent.turnout_mu,
+                      "turnout_s": agent.turnout_s}
+                    
             agent.save()
         return agents
 
@@ -108,17 +122,27 @@ class Environment:
 
     # run a single iteration of the simulation, changing agents as required
     def iterate(self) -> None:
-        for agent in self.agents:
+        for (i, agent) in enumerate(self.agents):
             agent.model_iteration += 1
             agent.age += 1
-            agent.turnout_mu += 0.006 # up per year of age
+
+            # check for agent death, replace with 18 year old of same race
+            if agent.age > MAX_AGE:
+                new_agent = Agent()
+                new_agent.race = agent.race
+                new_agent.age = 18
+                new_agent.turnout_mu = 0.5
+                self.max_agent_id += 1
+                new_agent.agent_id = self.max_agent_id
+                self.agents[i] = new_agent
+                new_agent.save()
+            else:
+                agent.turnout_mu += 0.006 # up per year of age
+                # save updated agent data
+                agent.save()
+            
             # TODO: update mu up and down with varying distributions
 
-
-    # setup list of agent models for storage
-    def setup_agent_stores(self) -> list:
-        for a in self.agents:
-            continue
 
 
     # print the parameters for each agent (useful for debugging)
