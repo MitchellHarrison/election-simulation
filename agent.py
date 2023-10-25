@@ -1,23 +1,33 @@
 import scipy.stats as stats
+import numpy as np
+from peewee import *
 
-class Agent:
-    # these are the parameters required to create an agent and their defaults
-    def __init__(self, _id = 1, age = 18, net_worth = 10000, race = "white",
-                 politics = "red", education = 1, turnout_mu = 0.5,
-                 turnout_s = 1) -> None:
-        # this starst with an underscore to differentiate it from the id()
-        # function that is built into python
-        self.id = _id
-        self.age = age
-        self.net_worth = net_worth
-        self.race = race
-        self.politics = politics
-        self.education = education
+database = SqliteDatabase("simulation.db")
 
-        # establish initial turnout decision distribution
-        self.turnout_mu = turnout_mu
-        self.turnout_s = turnout_s
-        self.turnout_dist = stats.norm(loc = turnout_mu, scale = turnout_s)
+class Agent(Model):
+    # this starst with an underscore to differentiate it from the id()
+    # function that is built into python
+    _id = IntegerField(default = 1)
+    age = IntegerField(default = 30)
+    income = IntegerField(default = 100000)
+    race = CharField(default = "White")
+    sex = CharField(default = "M")
+    color = CharField(default = "red")
+    education = CharField(default = "some college")
+
+    # incrimented at each model iteration for ease of storage in a single table
+    model_iteration = IntegerField(default = 0)
+
+    # establish initial turnout decision distribution
+    turnout_mu = FloatField(default = 0.5)
+    turnout_s = FloatField(default = 0.5)
+    turnout_dist = stats.norm(loc = turnout_mu, scale = turnout_s)
+
+
+    # metadata for the database
+    class Meta:
+        database = database
+        table_name = "Agent"
 
 
     # this will update the mean (mu) and variance (s2) of the 
@@ -53,9 +63,15 @@ class Agent:
 
         Age: {self.age}
         Race: {self.race}
-        Net Worth: ${self.net_worth}
-        Political Color: {self.politics}
+        Net Worth: ${self.income}
+        Political Color: {self.color}
         Education: {self.education}
 
         """
         return output
+
+
+    # override __init__ for ease of use in modelling
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
