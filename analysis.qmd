@@ -1,0 +1,29 @@
+```{r}
+#| label: import-libs
+library(tidyverse)
+library(RSQLite)
+```
+
+```{r}
+#| label: read-data
+db <- dbConnect(SQLite(), dbname = "simulation.db")
+query <- "SELECT * FROM sim;"
+agent_df <- dbGetQuery(db, query)
+dbDisconnect(db)
+
+agents <- as_tibble(agent_df)
+```
+
+```{r}
+#| label: age-histogram
+agents |>
+  ggplot(aes(x = age)) +
+  geom_histogram(color = "black", fill = "red", alpha = 0.5) +
+  labs(
+    x = "Age",
+    y = "Count",
+    title = "Age Distribution of Simulation Agents"
+  ) +
+  theme_test()
+```
+

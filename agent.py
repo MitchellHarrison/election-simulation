@@ -8,6 +8,11 @@ class Agent(Model):
     # this starst with an underscore to differentiate it from the id()
     # function that is built into python
     _id = IntegerField(default = 1)
+
+    # incrimented at each model iteration for ease of storage in a single table
+    model_iteration = IntegerField(default = 0)
+
+    # agent information
     age = IntegerField(default = 30)
     income = IntegerField(default = 100000)
     race = CharField(default = "White")
@@ -15,8 +20,6 @@ class Agent(Model):
     color = CharField(default = "red")
     education = CharField(default = "some college")
 
-    # incrimented at each model iteration for ease of storage in a single table
-    model_iteration = IntegerField(default = 0)
 
     # establish initial turnout decision distribution
     turnout_mu = FloatField(default = 0.5)
@@ -27,7 +30,7 @@ class Agent(Model):
     # metadata for the database
     class Meta:
         database = database
-        table_name = "Agent"
+        table_name = "sim"
 
 
     # this will update the mean (mu) and variance (s2) of the 

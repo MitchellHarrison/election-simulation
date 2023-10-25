@@ -79,7 +79,6 @@ class Environment:
                                            p = [self.p_red, self.p_blue])
             agent.net_worth = np.random.choice(INCOME_BINS, 
                                                p = self.income_dist)
-            print(self.education_dist)
             agent.education = np.random.choice(EDU_BINS, 
                                                p = self.education_dist)
             agent.race = np.random.choice(RACES, p = self.race_dist)

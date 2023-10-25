@@ -1,17 +1,17 @@
-import numpy as np
 from agent import Agent
 from environment import Environment
-from dbmanager import DBInterface
 from peewee import *
+
+POP_SIZE = 500
 
 database = SqliteDatabase("simulation.db")
 
 # delete old data every time the model runs
-if database.table_exists("sim"):
-    database.drop_table("sim")
+if database.table_exists(Agent):
+    Agent.drop_table()
 
-database.create_tables(["sim"], safe = True)
+database.create_tables([Agent], safe = True)
 
 if __name__ == "__main__":
-    env = Environment()
+    env = Environment(pop_size = POP_SIZE)
 
