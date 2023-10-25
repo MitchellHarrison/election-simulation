@@ -27,3 +27,21 @@ agents |>
   theme_test()
 ```
 
+```{r}
+#| label: race-counts
+agents |>
+  filter(model_iteration == 0) |>
+  group_by(race) |>
+  summarise(n = n()) |>
+  arrange(desc(n)) |>
+  mutate(race = factor(race, levels = race)) |>
+  ggplot(aes(x = race, y = n)) +
+  geom_col(color = "black", fill = "red", alpha = 0.5) +
+  labs(
+    x = element_blank(),
+    y = "Count",
+    title = "Racial Makeup of Simulation Agents"
+  ) +
+  theme_test()
+```
+
