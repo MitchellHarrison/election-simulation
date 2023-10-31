@@ -17,6 +17,7 @@ class Agent(Model):
     income = IntegerField(default = 100000)
     race = CharField(default = "White")
     sex = CharField(default = "M")
+    politics_score = FloatField(default = 0)
     color = CharField(default = "red")
     education = CharField(default = "Some college")
 

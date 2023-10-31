@@ -15,6 +15,13 @@ agents <- as_tibble(agent_df)
 ```
 
 ```{r}
+agents |>
+  filter(model_iteration %% 4 == 0) |>
+  group_by(model_iteration) |>
+  summarise(number_of_people = n())
+```
+
+```{r}
 #| label: age-histogram
 agents |>
   ggplot(aes(x = age)) +
@@ -43,5 +50,12 @@ agents |>
     title = "Racial Makeup of Simulation Agents"
   ) +
   theme_test()
+```
+
+```{r}
+agents |>
+  filter(agent_id == 3) |>
+  ggplot(aes(x = model_iteration, y = politics_score)) +
+  geom_line()
 ```
 
