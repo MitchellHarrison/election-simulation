@@ -31,7 +31,7 @@ class Agent(Model):
     # metadata for the database
     class Meta:
         database = database
-        table_name = "sim"
+        table_name = "agents"
         primary_key = False
 
 

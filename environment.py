@@ -1,6 +1,7 @@
 import scipy.stats as stats
 import numpy as np
 from agent import Agent
+from election import Election
 
 # bin definitions
 MAX_AGE = 77
@@ -163,8 +164,7 @@ class Environment:
         for agent in self.agents:
             mu = agent.turnout_mu
             is_centrist = -0.1 <= mu <= 0.1
-            sd = agent.turnout_s
-            turnout_draw = stats.norm.rvs(loc = mu, scale = sd, size = 1)
+            turnout_draw = agent.draw_turnout_score()
 
             # if voter decides to vote
             if is_centrist:
@@ -183,21 +183,31 @@ class Environment:
                     blue_count += 1
 
         # break unlikely ties arbitrarily
+        winner = ""
         if red_count == blue_count:
-            print("tie")
-            return np.random.choice(["red", "blue"], p = (0.5, 0.5))
+            winner = np.random.choice(["red", "blue"], p = (0.5, 0.5))
         elif red_count > blue_count:
-            print("red")
-            return "red"
-        print("blue")
-        return "blue"
+            winner = "red"
+        else:
+            winner = "blue"
+
+        election = Election(
+                model_iteration = self.current_iteration, 
+                red_count = red_count, 
+                blue_count = blue_count, 
+                winner = winner
+            )
+        election.save()
+
+        return winner
 
 
     # run a single iteration of the simulation, changing agents as required
     def iterate(self) -> None:
         self.current_iteration += 1
         if self.current_iteration % 4 == 0:
-            self.run_election()
+            winner = self.run_election()
+            print(winner)
 
         for (i, agent) in enumerate(self.agents):
             agent.model_iteration = self.current_iteration
