@@ -26,6 +26,9 @@ elections <- as_tibble(election_df)
 ##### VISUALIZATIONS #####
 ##########################
 
+RED <- "#DE0100"
+BLUE <- "#0015BC"
+  
 # median age over time
 age <- agents |>
   group_by(model_iteration) |>
@@ -45,10 +48,11 @@ age <- ggplotGrob(age)
 
 # mean turnout over time
 turnout <- agents |>
-  group_by(model_iteration) |>
+  group_by(model_iteration, color) |>
   summarise(median_turnout_mu = median(turnout_mu)) |>
   ggplot(aes(x = model_iteration, y = median_turnout_mu)) +
-  geom_line() + 
+  geom_line(aes(color = color)) +
+  scale_color_manual(values = c("red" = RED, "blue" = BLUE)) +
   labs(
     title = "Mean Turnout Likelihood Over Time",
     x = "Model iteration",
@@ -56,7 +60,8 @@ turnout <- agents |>
   ) +
   theme_test() +
   theme(
-    panel.grid.major.y = element_line(color = "lightgray", linetype = "dashed")
+    panel.grid.major.y = element_line(color = "lightgray", linetype = "dashed"),
+    legend.position = "none"
   )
 turnout <- ggplotGrob(turnout)
 
@@ -83,23 +88,24 @@ votes <- ggplotGrob(votes)
 
 # median politics score over time
 politics <- agents |>
-  group_by(model_iteration) |>
+  group_by(model_iteration, color) |>
   summarise(median_politics = median(politics_score)) |>
   ggplot(aes(x = model_iteration, y = median_politics)) +
-  geom_line() +
+  geom_line(aes(color = color)) +
+  scale_color_manual(values = c("red" = RED, "blue" = BLUE)) +
   labs(
-    title = "Median Political Score Over Time",
+    title = "Median Population Politics Over Time",
     x = "Model iteration",
     y = "Median political score"
   ) +
   theme_test() +
   theme(
-    panel.grid.major.y = element_line(color = "lightgray", linetype = "dashed")
+    panel.grid.major.y = element_line(color = "lightgray", linetype = "dashed"),
+    legend.position = "none"
   )
 politics <- ggplotGrob(politics)
 
 # party distribution over time
-party_color <- list("red" = "#DE0100", "blue" = "#0015bc")
 party <- agents |>
   group_by(model_iteration, color) |>
   summarise(count = n()) |>
@@ -119,8 +125,31 @@ party <- agents |>
     legend.position = "none"
   )
 party <- ggplotGrob(party)
+
+# median voter politics (not just the entire population)
+voters <- agents |>
+  filter(voted == 1) |>
+  group_by(model_iteration, color) |>
+  summarise(median_politics = median(politics_score)) |>
+  ggplot(aes(x = model_iteration, y = median_politics)) +
+  geom_line(aes(color = color)) +
+  geom_point(aes(color = color)) +
+  scale_color_manual(values = c("red" = RED, "blue" = BLUE)) +
+  labs(
+    title = "Median Voter Politics Over Time",
+    x = "Model iteration",
+    y = "Median political score"
+  ) +
+  theme_test() +
+  theme(
+    panel.grid.major.y = element_line(color = "lightgray", linetype = "dashed"),
+    legend.position = "none"
+  )
+voters <- ggplotGrob(voters)
+  
+grobs = list(age, turnout, votes, politics, party, voters)
   
 # display graphs in a grid
-grid.arrange(grobs = list(age, turnout, votes, politics, party), ncols = 2)
+grid.arrange(grobs = grobs, ncols = 2)
 ```
 

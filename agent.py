@@ -15,6 +15,12 @@ class Agent(Model):
     # incrimented at each model iteration for ease of storage in a single table
     model_iteration = IntegerField(default = 0)
 
+    # boolean variable that is 1 when there is an election
+    election_year = IntegerField(default = 0)
+
+    # if election_year == 1 then voted will be 1 if they turned out to vote
+    voted = IntegerField(default = 0)
+
     # agent information
     age = IntegerField(default = 30)
     income = IntegerField(default = 100000)
@@ -43,7 +49,7 @@ class Agent(Model):
         new_mu = 0
         # adjust turnout based on age (Pew)
         if self.age > 64:
-            new_mu += 2 * NOTCH_SIZE
+            new_mu += 1.5 * NOTCH_SIZE
         elif self.age > 50:
             new_mu += NOTCH_SIZE
         elif self.age > 30:
@@ -56,6 +62,11 @@ class Agent(Model):
             new_mu -= 2 * NOTCH_SIZE
         elif self.education == "College graduate":
             new_mu += 2 * NOTCH_SIZE
+
+
+        # if a person is highly partisain, they vote more often
+        if np.abs(self.politics_score) > 0.3:
+            new_mu += NOTCH_SIZE
 
         return new_mu
 

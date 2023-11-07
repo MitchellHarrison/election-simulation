@@ -3,8 +3,8 @@ from environment import Environment
 from election import Election
 from peewee import *
 
-POP_SIZE = 500
-MAX_ITERATIONS = 50 
+POP_SIZE = 100
+MAX_ITERATIONS = 100 
 
 database = SqliteDatabase("simulation.db")
 

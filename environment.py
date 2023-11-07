@@ -19,7 +19,7 @@ GRAD_RATE = 0.75
 EDU_BINS = ["High school or less", "Some college", "College graduate"]
 RACES = ["White", "Black", "Hispanic", "Asian", "Other"]
 
-AGE_MU = 52
+AGE_MU = 53
 AGE_SD = 14
 
 # demographic distributions from Pew
@@ -99,7 +99,7 @@ class Environment:
     def adjust_starting_politics(self, agent) -> Agent:
         # corrent for age
         age_from_start = agent.age - 18
-        agent.politics_score += AGE_POL * age_from_start
+        agent.politics_score += AGE_POL * age_from_start / 1.3
 
         # adjust starting politics by race (Pew)
         if agent.race == "Black":
@@ -131,6 +131,7 @@ class Environment:
 
             # create an agent from relevant distributions passed to the env
             agent.agent_id = agent_id
+            agent.election_year = 0
             age = -1
 
             # keep ages in the appropriate range
@@ -169,6 +170,7 @@ class Environment:
         red_count = 0
 
         for agent in self.agents:
+            agent.election_year = 1
             mu = agent.turnout_mu
             is_centrist = -0.1 <= mu <= 0.1
             turnout_draw = agent.draw_turnout_score()
@@ -184,6 +186,7 @@ class Environment:
                 color = agent.color
 
             if turnout_draw >= TURNOUT_THRESH:
+                agent.voted = 1
                 if color == "red":
                     red_count += 1
                 else:
@@ -227,11 +230,18 @@ class Environment:
     # run a single iteration of the simulation, changing agents as required
     def iterate(self) -> None:
         self.current_iteration += 1
-        if self.current_iteration % 4 == 0:
+
+        # check for election year
+        election_year = 1 if self.current_iteration % 4 == 0 else 0
+        if election_year:
             self.prev_winner = self.run_election()
 
         for i, agent in enumerate(self.agents):
             agent.model_iteration = self.current_iteration
+
+            agent.election_year = election_year
+            if not election_year:
+                agent.voted = 0
 
             agent.age += 1
 
@@ -240,7 +250,9 @@ class Environment:
                 agent.education = self.get_education()
 
             # check for agent death, replace with 18 year old of same race
-            if agent.age > MAX_AGE:
+            # mean and standard deviation from NIH
+            death_threshold = stats.norm.rvs(loc = 77, scale = 15, size = 1)
+            if agent.age > MAX_AGE or agent.age >= death_threshold:
                 new_agent = Agent()
                 new_agent.race = agent.race
                 age = -1
@@ -288,9 +300,9 @@ class Environment:
 
                 # move agents away from sitting party (historc trend)
                 if self.prev_winner == "red":
-                    agent.politics_score -= 0.01
+                    agent.politics_score -= 0.02
                 else:
-                    agent.politics_score += 0.01
+                    agent.politics_score += 0.02
                 
                 agent.update_turnout_dist()
                 agent.update_color()
