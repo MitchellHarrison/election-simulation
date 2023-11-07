@@ -2,60 +2,125 @@
 #| label: import-libs
 library(tidyverse)
 library(RSQLite)
+library(gridExtra)
 ```
 
 ```{r}
-#| label: read-data
+#| label: build-visualizations
+
+#####################
+##### READ DATA #####
+#####################
+
 db <- dbConnect(SQLite(), dbname = "simulation.db")
-query <- "SELECT * FROM sim;"
-agent_df <- dbGetQuery(db, query)
+agent_query <- "SELECT * FROM agents;"
+election_query <- "SELECT * FROM elections;"
+agent_df <- dbGetQuery(db, agent_query)
+election_df <- dbGetQuery(db, election_query)
 dbDisconnect(db)
 
 agents <- as_tibble(agent_df)
-```
+elections <- as_tibble(election_df)
 
-```{r}
-agents |>
-  filter(model_iteration %% 4 == 0) |>
+##########################
+##### VISUALIZATIONS #####
+##########################
+
+# median age over time
+age <- agents |>
   group_by(model_iteration) |>
-  summarise(number_of_people = n())
-```
-
-```{r}
-#| label: age-histogram
-agents |>
-  ggplot(aes(x = age)) +
-  geom_histogram(color = "black", fill = "red", alpha = 0.5) +
+  summarise(median_age = median(age)) |>
+  ggplot(aes(x = model_iteration, y = median_age)) +
+  geom_line() +
   labs(
-    x = "Age",
-    y = "Count",
-    title = "Age Distribution of Simulation Agents"
+    title = "Median Age Over Time",
+    x = "Model iteration",
+    y = "Median age"
   ) +
-  theme_test()
-```
+  theme_test() +
+  theme(
+    panel.grid.major.y = element_line(color = "lightgray", linetype = "dashed")
+  )
+age <- ggplotGrob(age)
 
-```{r}
-#| label: race-counts
-agents |>
-  filter(model_iteration == 0) |>
-  group_by(race) |>
-  summarise(n = n()) |>
-  arrange(desc(n)) |>
-  mutate(race = factor(race, levels = race)) |>
-  ggplot(aes(x = race, y = n)) +
-  geom_col(color = "black", fill = "red", alpha = 0.5) +
+# mean turnout over time
+turnout <- agents |>
+  group_by(model_iteration) |>
+  summarise(median_turnout_mu = median(turnout_mu)) |>
+  ggplot(aes(x = model_iteration, y = median_turnout_mu)) +
+  geom_line() + 
   labs(
-    x = element_blank(),
-    y = "Count",
-    title = "Racial Makeup of Simulation Agents"
+    title = "Mean Turnout Likelihood Over Time",
+    x = "Model iteration",
+    y = "Median turnout mean"
   ) +
-  theme_test()
-```
+  theme_test() +
+  theme(
+    panel.grid.major.y = element_line(color = "lightgray", linetype = "dashed")
+  )
+turnout <- ggplotGrob(turnout)
 
-```{r}
-agents |>
-  filter(agent_id == 3) |>
-  ggplot(aes(x = model_iteration, y = politics_score)) +
-  geom_line()
+# total number of votes per election
+n_iters <- max(agents$model_iteration)
+votes <- elections |>
+  mutate(total_vote = red_count + blue_count) |>
+  ggplot(aes(x = model_iteration, y = total_vote)) +
+  geom_line() +
+  geom_point(aes(x = model_iteration, y = total_vote, color = winner)) +
+  scale_color_manual(values = party_color) +
+  xlim(0, n_iters) +
+  labs(
+    title = "Total Votes Over Time",
+    x = "Model iteration",
+    y = "Total votes"
+  ) +
+  theme_test() +
+  theme(
+    panel.grid.major.y = element_line(color = "lightgray", linetype = "dashed"),
+    legend.position = "top"
+  )
+votes <- ggplotGrob(votes)
+
+# median politics score over time
+politics <- agents |>
+  group_by(model_iteration) |>
+  summarise(median_politics = median(politics_score)) |>
+  ggplot(aes(x = model_iteration, y = median_politics)) +
+  geom_line() +
+  labs(
+    title = "Median Political Score Over Time",
+    x = "Model iteration",
+    y = "Median political score"
+  ) +
+  theme_test() +
+  theme(
+    panel.grid.major.y = element_line(color = "lightgray", linetype = "dashed")
+  )
+politics <- ggplotGrob(politics)
+
+# party distribution over time
+party_color <- list("red" = "#DE0100", "blue" = "#0015bc")
+party <- agents |>
+  group_by(model_iteration, color) |>
+  summarise(count = n()) |>
+  group_by(model_iteration) |>
+  mutate(pct = (count / sum(count)) * 100) |>
+  ggplot(aes(x = model_iteration, y = pct, fill = color)) +
+  geom_area(color = "black", alpha = 0.4) +
+  scale_fill_manual(values = party_color) +
+  labs(
+    title = "Party Distribution Over Time",
+    x = "Model iteration",
+    y = element_blank()
+  ) +
+  theme_test() +
+  theme(
+    panel.grid.major.y = element_line(color = "lightgray", linetype = "dashed"),
+    legend.position = "none"
+  )
+party <- ggplotGrob(party)
+  
+# display graphs in a grid
+grid.arrange(grobs = list(age, turnout, votes, politics, party), ncols = 2)
 ```
 

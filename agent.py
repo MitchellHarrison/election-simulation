@@ -4,6 +4,9 @@ from peewee import *
 
 database = SqliteDatabase("simulation.db")
 
+# the notch size denotes the positive or negative change to 
+NOTCH_SIZE = 0.01
+
 class Agent(Model):
     # this starst with an underscore to differentiate it from the id()
     # function that is built into python
@@ -24,7 +27,7 @@ class Agent(Model):
 
     # establish initial turnout decision distribution
     turnout_mu = FloatField(default = 0.5)
-    turnout_s = FloatField(default = 0.5)
+    turnout_s = FloatField(default = 0.1)
     turnout_dist = stats.norm(loc = turnout_mu, scale = turnout_s)
 
 
@@ -35,16 +38,45 @@ class Agent(Model):
         primary_key = False
 
 
+    # calculate the updated mean of turnout distribution
+    def calculate_mu(self):
+        new_mu = 0
+        # adjust turnout based on age (Pew)
+        if self.age > 64:
+            new_mu += 2 * NOTCH_SIZE
+        elif self.age > 50:
+            new_mu += NOTCH_SIZE
+        elif self.age > 30:
+            new_mu -= NOTCH_SIZE
+        else:
+            new_mu -= 2 * NOTCH_SIZE
+
+        # adjust turnout based on education (Pew)
+        if self.education == "High school or less":
+            new_mu -= 2 * NOTCH_SIZE
+        elif self.education == "College graduate":
+            new_mu += 2 * NOTCH_SIZE
+
+        return new_mu
+
     # this will update the mean (mu) and variance (s2) of the 
     # turnout distribution
-    def update_turnout_dist(self, delta_mu = 0, delta_s = 0) -> None:
-        self.turnout_mu += delta_mu
+    def update_turnout_dist(self, delta_s = 0) -> None:
+        self.turnout_mu += self.calculate_mu()
         self.turnout_s += delta_s
         self.turnout_dist = stats.norm(loc = self.turnout_mu, 
                                        scale = self.turnout_s)
         return None
 
     
+    # check for party switch
+    def update_color(self):
+        if self.politics_score < 0:
+            self.color = "blue"
+        else:
+            self.color = "red"
+
+
     # pull a random value from the turnout likelihood distribution
     def draw_turnout_score(self) -> float:
         draws = self.turnout_dist.rvs(size = 1)
@@ -63,7 +95,7 @@ class Agent(Model):
     # this runs when you print() an agent
     def __str__(self) -> str:
         output = f"""
-        Agent {self.id}
+        Agent
         ______________________________________
 
         Age: {self.age}

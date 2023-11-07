@@ -4,7 +4,7 @@ from election import Election
 from peewee import *
 
 POP_SIZE = 500
-MAX_ITERATIONS = 50
+MAX_ITERATIONS = 50 
 
 database = SqliteDatabase("simulation.db")
 

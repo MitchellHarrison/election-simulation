@@ -7,22 +7,30 @@ from election import Election
 MAX_AGE = 77
 AGE_BINS = [(18,29), (30,49), (50,64), (65,MAX_AGE)]
 
-# median income from Capital One
-INCOME_BINS = [45604, 59150, 59228 , 57252]
+# "burn-in" removes the first few iterations to approach equilibrium before saving
+BURN_IN = 0
 
-EDU_BINS = ["High School or Less", "Some college", "College graduate"]
+# enrollment rate (BLS)
+ENROLL_RATE = 0.62
+
+# grad rate (education data initiative)
+GRAD_RATE = 0.75
+
+EDU_BINS = ["High school or less", "Some college", "College graduate"]
 RACES = ["White", "Black", "Hispanic", "Asian", "Other"]
 
 AGE_MU = 52
 AGE_SD = 14
 
 # demographic distributions from Pew
-voter_age = [10, 26, 30, 34]
-nonvoter_age = [27, 37, 22, 14]
+voter_age = [14, 26, 30, 30]
+nonvoter_age = [36, 21, 19, 24]
 
 voter_race = [75, 9, 9, 3, 4]
 nonvoter_race = [55, 15, 18, 5, 5]
 
+# edu stats are for starting distribution
+# new agents will graduate with fixed probability at 21
 voter_edu = [25, 31, 24 + 19]
 nonvoter_edu = [43, 31, 16 + 10]
 
@@ -53,25 +61,21 @@ def average_lists(list1, list2) -> list:
 AGE_DIST = average_lists(voter_age, nonvoter_age)
 RACE_DIST = average_lists(voter_race, nonvoter_race)
 EDU_DIST = average_lists(voter_edu, nonvoter_edu)
-INCOME_DIST = [.25, .25, .25, .25]
 
 
 class Environment:
     def __init__(self, p_red = 0.5, pop_size = 10, age_dist = AGE_DIST,
-                 income_dist = INCOME_DIST, education_dist = EDU_DIST, 
-                 race_dist = RACE_DIST, past_winners = []):
+                 education_dist = EDU_DIST, race_dist = RACE_DIST):
         # set environment constants
         self.agents = []
         self.p_red = p_red
         self.p_blue = 1 - p_red
         self.pop_size = pop_size
-        self.prev_winner = past_winners
         self.max_agent_id = 0
         self.current_iteration = 0
 
         # set environment probability distributions
         self.age_dist = age_dist
-        self.income_dist = income_dist
         self.education_dist = education_dist
         self.race_dist = race_dist
 
@@ -80,6 +84,9 @@ class Environment:
 
         # list of peewee objects to store data from agents
         self.agent_stores = []
+
+        # keep track of current party in power
+        self.prev_winner = "red"
 
 
     """
@@ -114,8 +121,6 @@ class Environment:
         else:
             agent.color = "red"
 
-        return agent
-
 
     # create agents in the simulation from given distributions
     def setup_agents(self):
@@ -130,17 +135,21 @@ class Environment:
 
             # keep ages in the appropriate range
             while age < 18 or age > 77:
-                age = stats.norm.rvs(AGE_MU, AGE_SD, size = 1)
+                age = int(stats.norm.rvs(AGE_MU, AGE_SD, size = 1))
 
             agent.age = age
             agent.sex = np.random.choice(["M", "F"], p = (0.5, 0.5))
+
+            # women turnout slightly more than men
+            if agent.sex == "F":
+                agent.turnout_mu += 0.1
+
+            agent.politics_score = 0
             agent.race = np.random.choice(RACES, p = self.race_dist)
 
             # -1 to 1 score for more liberal/conservative
-            agent = self.adjust_starting_politics(agent)
+            self.adjust_starting_politics(agent)
 
-            agent.net_worth = np.random.choice(INCOME_BINS, 
-                                               p = self.income_dist)
             agent.education = np.random.choice(EDU_BINS, 
                                                p = self.education_dist)
             agent.model_iteration = 0
@@ -150,8 +159,6 @@ class Environment:
             agent_id += 1
             self.max_agent_id += 1
 
-            agent.save()
-                    
         return agents
 
 
@@ -191,43 +198,67 @@ class Environment:
         else:
             winner = "blue"
 
-        election = Election(
-                model_iteration = self.current_iteration, 
-                red_count = red_count, 
-                blue_count = blue_count, 
-                winner = winner
-            )
-        election.save()
+        if self.current_iteration > BURN_IN:
+            election = Election(
+                    model_iteration = self.current_iteration, 
+                    red_count = red_count, 
+                    blue_count = blue_count, 
+                    winner = winner
+                )
+            print(f"Winner: {winner.title()}")
+            election.save()
 
         return winner
+
+
+    # re-calculate an agent's education outcome
+    def get_education(self) -> str:
+        edu = "High school or less"
+        p_college = np.random.random()
+        if p_college <= ENROLL_RATE:
+            p_graduated = np.random.random()
+            if p_graduated <= GRAD_RATE:
+                edu = "College graduate"
+            else:
+                edu = "Some college"
+        return edu
 
 
     # run a single iteration of the simulation, changing agents as required
     def iterate(self) -> None:
         self.current_iteration += 1
         if self.current_iteration % 4 == 0:
-            winner = self.run_election()
-            print(winner)
+            self.prev_winner = self.run_election()
 
-        for (i, agent) in enumerate(self.agents):
+        for i, agent in enumerate(self.agents):
             agent.model_iteration = self.current_iteration
 
             agent.age += 1
+
+            # check to see if agent graduated college at 21
+            if agent.age == 21:
+                agent.education = self.get_education()
 
             # check for agent death, replace with 18 year old of same race
             if agent.age > MAX_AGE:
                 new_agent = Agent()
                 new_agent.race = agent.race
-                new_agent.age = 18
+                age = -1
+
+                # keep ages in the appropriate range
+                while age < 18 or age > 77:
+                    age = int(stats.norm.rvs(AGE_MU, AGE_SD, size = 1))
+
+                new_agent.age = age
                 new_agent.sex = np.random.choice(["M", "F"], p = (0.5, 0.5))
                 new_agent.turnout_mu = 0.5
-                new_agent.politics_score = 0
+                self.adjust_starting_politics(new_agent)
                 self.max_agent_id += 1
                 new_agent.model_iteration = self.current_iteration
                 new_agent.agent_id = self.max_agent_id
 
                 # adjust starting politics based on demographics
-                new_agent = self.adjust_starting_politics(new_agent)
+                self.adjust_starting_politics(new_agent)
                 
                 self.agents[i] = new_agent
                 agent = new_agent
@@ -235,8 +266,8 @@ class Environment:
             # if agent doesn't die
             else:
                 # decide if a person graduated college
-                if agent.age == 22:
-                    agent.education = np.random.choice(EDU_BINS, p = EDU_DIST)
+                if agent.age > 22:
+                    agent.education = self.get_education()
 
                 # move centrists more conservative per year (Pew)
                 politics_dist = stats.norm(loc = 0, scale = 1)
@@ -254,8 +285,19 @@ class Environment:
 
                     # move right with age (Pew)
                     agent.politics_score += 0.01 # for age
+
+                # move agents away from sitting party (historc trend)
+                if self.prev_winner == "red":
+                    agent.politics_score -= 0.01
+                else:
+                    agent.politics_score += 0.01
                 
+                agent.update_turnout_dist()
+                agent.update_color()
+
             # save updated agent data
+            if self.current_iteration < BURN_IN:
+                return
             agent.save()
 
 
