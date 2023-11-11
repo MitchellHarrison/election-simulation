@@ -1,16 +1,24 @@
+---
+execute: 
+  message: false
+  warning: false
+---
+
 ```{r}
-#| label: import-libs
+#| label: import-libs-and-colors
 library(tidyverse)
 library(RSQLite)
 library(gridExtra)
+library(tidymodels)
+
+RED <- "#DE0100"
+BLUE <- "#0015BC"
+party_color <- list("red" = RED, "blue" = BLUE)
 ```
 
-```{r}
-#| label: build-visualizations
 
-#####################
-##### READ DATA #####
-#####################
+```{r}
+#| label: load-data-from-db
 
 db <- dbConnect(SQLite(), dbname = "simulation.db")
 agent_query <- "SELECT * FROM agents;"
@@ -21,14 +29,13 @@ dbDisconnect(db)
 
 agents <- as_tibble(agent_df)
 elections <- as_tibble(election_df)
+POP <- nrow(filter(agents, model_iteration == 1))
+```
 
-##########################
-##### VISUALIZATIONS #####
-##########################
+# Visualizations
 
-RED <- "#DE0100"
-BLUE <- "#0015BC"
-  
+### Median voter age over time
+```{r}
 # median age over time
 age <- agents |>
   group_by(model_iteration) |>
@@ -44,9 +51,12 @@ age <- agents |>
   theme(
     panel.grid.major.y = element_line(color = "lightgray", linetype = "dashed")
   )
-age <- ggplotGrob(age)
+age
+```
 
-# mean turnout over time
+### Median turnout likelihood by party
+```{r}
+#| label: median-turnout-by-party
 turnout <- agents |>
   group_by(model_iteration, color) |>
   summarise(median_turnout_mu = median(turnout_mu)) |>
@@ -63,9 +73,13 @@ turnout <- agents |>
     panel.grid.major.y = element_line(color = "lightgray", linetype = "dashed"),
     legend.position = "none"
   )
-turnout <- ggplotGrob(turnout)
+turnout
+```
 
-# total number of votes per election
+
+### Total votes per election
+```{r}
+#| label: vote-count-per-election
 n_iters <- max(agents$model_iteration)
 votes <- elections |>
   mutate(total_vote = red_count + blue_count) |>
@@ -84,9 +98,12 @@ votes <- elections |>
     panel.grid.major.y = element_line(color = "lightgray", linetype = "dashed"),
     legend.position = "top"
   )
-votes <- ggplotGrob(votes)
+votes
+```
 
-# median politics score over time
+### Median political score over time
+```{r}
+#| label: median-political-stance-over-time
 politics <- agents |>
   group_by(model_iteration, color) |>
   summarise(median_politics = median(politics_score)) |>
@@ -103,9 +120,12 @@ politics <- agents |>
     panel.grid.major.y = element_line(color = "lightgray", linetype = "dashed"),
     legend.position = "none"
   )
-politics <- ggplotGrob(politics)
+politics
+```
 
-# party distribution over time
+### Party distribution over time
+```{r}
+#| label: party-distribution-over-time
 party <- agents |>
   group_by(model_iteration, color) |>
   summarise(count = n()) |>
@@ -124,9 +144,14 @@ party <- agents |>
     panel.grid.major.y = element_line(color = "lightgray", linetype = "dashed"),
     legend.position = "none"
   )
-party <- ggplotGrob(party)
+party
+```
 
-# median voter politics (not just the entire population)
+### Median voter politics over time
+*Note: this is different than the population politics. This only includes those*
+*that turned out to vote*
+```{r}
+#| label: median-voter-politics-over-time
 voters <- agents |>
   filter(voted == 1) |>
   group_by(model_iteration, color) |>
@@ -145,11 +170,76 @@ voters <- agents |>
     panel.grid.major.y = element_line(color = "lightgray", linetype = "dashed"),
     legend.position = "none"
   )
-voters <- ggplotGrob(voters)
-  
-grobs = list(age, turnout, votes, politics, party, voters)
+voters
+```
+
+### Combined visualizations
+```{r}
+#| label: visualization-grid
+gage <- ggplotGrob(age)
+gturnout <- ggplotGrob(turnout)
+gvotes <- ggplotGrob(votes)
+gpolitics <- ggplotGrob(politics)
+gparty <- ggplotGrob(party)
+gvoters <- ggplotGrob(voters)
+
+grobs = list(gage, gturnout, gvotes, gpolitics, gparty, gvoters)
   
 # display graphs in a grid
 grid.arrange(grobs = grobs, ncols = 2)
+```
+
+### Partisanship between voters and non-voters
+```{r}
+agents |>
+  filter(election_year == 1) |>
+  mutate(voted = as_factor(voted)) |>
+  ggplot(aes(x = politics_score)) +
+  geom_density(aes(fill = voted), color = "black", alpha = 0.5) +
+  scale_fill_manual(
+    name = element_blank(),
+    labels = c("Voted", "Did not vote"),
+    breaks = c(1, 0),
+    values = c("red", "black")
+  ) +
+  xlim(-2, 2) +
+  labs(
+    x = "Politics score", 
+    y = "Density", 
+    title = "Partisans Turn Out the Vote",
+    subtitle = "Political scores of voters vs. non-voters"
+  )+
+  theme_test() +
+  theme(
+    panel.grid.major.y = element_line(color = "lightgray", linetype = "dashed")
+  )
+```
+
+### Start/end political distribution
+```{r}
+agents |>
+  filter(model_iteration %in% c(1, max(model_iteration))) |>
+  mutate(model_iteration = factor(model_iteration)) |>
+  ggplot(aes(fill = model_iteration, x = politics_score)) +
+  geom_density(alpha = 0.5) +
+  labs(y = "Model Iteration", x = "Politics Score",
+       title = "A Divided People", fill = "Model iteration",
+       subtitle = "Starting and final distribution of politics scores") +
+  theme_test() +
+  theme(legend.positio = c(.15,.8))
+```
+
+
+## Modelling 
+
+```{r}
+spec <- linear_reg() |>
+  set_engine("lm") |>
+  set_mode("regression")
+
+model_data <- agents |>
+  filter(election_year == 1)
+
+# TODO fit model
 ```
 

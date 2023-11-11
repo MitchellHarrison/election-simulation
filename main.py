@@ -1,7 +1,11 @@
+import numpy as np
 from agent import Agent
 from environment import Environment
 from election import Election
 from peewee import *
+
+SEED = 427
+np.random.seed(SEED)
 
 POP_SIZE = 100
 MAX_ITERATIONS = 100 

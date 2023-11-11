@@ -21,6 +21,9 @@ class Agent(Model):
     # if election_year == 1 then voted will be 1 if they turned out to vote
     voted = IntegerField(default = 0)
 
+    # whether or not a voter is an extremist
+    is_extreme = IntegerField(default = 0)
+
     # agent information
     age = IntegerField(default = 30)
     income = IntegerField(default = 100000)
@@ -63,6 +66,9 @@ class Agent(Model):
         elif self.education == "College graduate":
             new_mu += 2 * NOTCH_SIZE
 
+        # extremists vote more
+        if self.is_extreme:
+            new_mu += NOTCH_SIZE
 
         # if a person is highly partisain, they vote more often
         if np.abs(self.politics_score) > 0.3:

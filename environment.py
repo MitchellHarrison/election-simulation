@@ -3,6 +3,9 @@ import numpy as np
 from agent import Agent
 from election import Election
 
+# politics score extremism threshold
+EXTREME_THRESH = 0.25
+
 # bin definitions
 MAX_AGE = 77
 AGE_BINS = [(18,29), (30,49), (50,64), (65,MAX_AGE)]
@@ -150,6 +153,10 @@ class Environment:
 
             # -1 to 1 score for more liberal/conservative
             self.adjust_starting_politics(agent)
+            if agent.politics_score > 0.4:
+                agent.is_extreme = 1
+            else:
+                agent.is_extreme = 0
 
             agent.education = np.random.choice(EDU_BINS, 
                                                p = self.education_dist)
@@ -299,15 +306,30 @@ class Environment:
                     agent.politics_score += 0.01 # for age
 
                 # move agents away from sitting party (historc trend)
-                if self.prev_winner == "red":
-                    agent.politics_score -= 0.02
-                else:
-                    agent.politics_score += 0.02
+                # if not extremists
+                if not agent.is_extreme:
+                    if self.prev_winner == "red":
+                        agent.politics_score -= 0.02
+                    else:
+                        agent.politics_score += 0.02
+
+                # move extremists further away from party in power
+                if self.prev_winner != agent.color and agent.is_extreme:
+                    if self.prev_winner == "red":
+                        agent.politics_score -= 0.01
+                    else:
+                        agent.politics_score += 0.01
                 
                 agent.update_turnout_dist()
                 agent.update_color()
+                
+                # check for extremity
+                if np.abs(agent.politics_score) > EXTREME_THRESH:
+                    agent.is_extreme = True
+                else:
+                    agent.is_extreme = False
 
-            # save updated agent data
+            # save updated agent data 
             if self.current_iteration < BURN_IN:
                 return
             agent.save()
