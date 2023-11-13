@@ -6,3 +6,10 @@ __pycache__/
 .RData
 .Rhistory
 .DS_Store
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.gz
+*.toc
