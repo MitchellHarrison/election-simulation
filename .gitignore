@@ -5,3 +5,4 @@ __pycache__/
 *.Rproj
 .RData
 .Rhistory
+.DS_Store

@@ -9,7 +9,9 @@ execute:
 library(tidyverse)
 library(RSQLite)
 library(gridExtra)
+library(rvest)
 library(tidymodels)
+library(gt)
 
 RED <- "#DE0100"
 BLUE <- "#0015BC"
@@ -30,6 +32,25 @@ dbDisconnect(db)
 agents <- as_tibble(agent_df)
 elections <- as_tibble(election_df)
 POP <- nrow(filter(agents, model_iteration == 1))
+
+turnout_url <- "https://en.wikipedia.org/wiki/Voter_turnout_in_United_States_presidential_elections#cite_note-:0-24"
+page <- read_html(turnout_url)
+table_filter <- ".wikitable"
+tables <- page |>
+  html_nodes(table_filter)|>
+  html_table()
+  
+turnout_vap <- tables[[1]] |>
+  select(1,5)
+
+turnout_vap <- turnout_vap |>
+  rename_all(~ c("year", "turnout_rate")) |>
+  mutate(
+    year = str_extract(year, "^.{4}"), 
+    year = as.numeric(year),
+    turnout_rate = str_replace(turnout_rate, "%", ""),
+    turnout_rate = as.numeric(turnout_rate)
+  )
 ```
 
 # Visualizations
@@ -84,14 +105,22 @@ n_iters <- max(agents$model_iteration)
 votes <- elections |>
   mutate(total_vote = red_count + blue_count) |>
   ggplot(aes(x = model_iteration, y = total_vote)) +
+  geom_rect(xmin = 41, xmax = 45, ymin = 74, ymax = 91, fill = "white") +
+  geom_vline(xintercept = 40, color = "gray") +
+  geom_text(x = 43, y = 72, hjust = "left", label = "Equilibrium",
+            angle = 90, color = "gray") +
   geom_line() +
-  geom_point(aes(x = model_iteration, y = total_vote, color = winner)) +
+  geom_point(aes(x = model_iteration, y = total_vote, color = winner), 
+             size = 2) +
   scale_color_manual(values = party_color) +
   xlim(0, n_iters) +
+  ylim(50, 90) +
   labs(
-    title = "Total Votes Over Time",
-    x = "Model iteration",
-    y = "Total votes"
+    title = "Turnout Remains Relatively Stagnant Across Iterations",
+    subtitle = "Total votes cast by population over time",
+    x = "Model Iteration",
+    y = "Total Votes (out of 100 voters)",
+    color = "Winner"
   ) +
   theme_test() +
   theme(
@@ -99,6 +128,7 @@ votes <- elections |>
     legend.position = "top"
   )
 votes
+ggsave("plots/total_votes.png", height = 1000, width = 2000, units = "px")
 ```
 
 ### Median political score over time
@@ -108,18 +138,23 @@ politics <- agents |>
   group_by(model_iteration, color) |>
   summarise(median_politics = median(politics_score)) |>
   ggplot(aes(x = model_iteration, y = median_politics)) +
-  geom_line(aes(color = color)) +
+  geom_line(aes(color = color), linewidth = 2) +
   scale_color_manual(values = c("red" = RED, "blue" = BLUE)) +
+  geom_text(x = 15, y = 0.15, label = "Conservatives", color = RED,
+            hjust = "left") +
+  geom_text(x = 15, y = -0.2, label = "Liberals", color = BLUE,
+            hjust = "left") +
   labs(
-    title = "Median Population Politics Over Time",
-    x = "Model iteration",
-    y = "Median political score"
+    title = "Median Population Politics Over Time by Party",
+    x = "Model Iteration",
+    y = "Median Political Score"
   ) +
   theme_test() +
   theme(
     panel.grid.major.y = element_line(color = "lightgray", linetype = "dashed"),
     legend.position = "none"
   )
+ggsave("plots/median_pop_pol.png", height = 1000, width = 2000, units = "px")
 politics
 ```
 
@@ -135,8 +170,9 @@ party <- agents |>
   geom_area(color = "black", alpha = 0.4) +
   scale_fill_manual(values = party_color) +
   labs(
-    title = "Party Distribution Over Time",
-    x = "Model iteration",
+    title = "Partisans Do Not Sway the Population",
+    subtitle = "Population level party distribution over time",
+    x = "Model Iteration",
     y = element_blank()
   ) +
   theme_test() +
@@ -145,6 +181,7 @@ party <- agents |>
     legend.position = "none"
   )
 party
+ggsave("plots/party_dist.png", height = 1200, width = 2000, units = "px")
 ```
 
 ### Median voter politics over time
@@ -162,8 +199,8 @@ voters <- agents |>
   scale_color_manual(values = c("red" = RED, "blue" = BLUE)) +
   labs(
     title = "Median Voter Politics Over Time",
-    x = "Model iteration",
-    y = "Median political score"
+    x = "Model Iteration",
+    y = "Median Political Score"
   ) +
   theme_test() +
   theme(
@@ -187,6 +224,16 @@ grobs = list(gage, gturnout, gvotes, gpolitics, gparty, gvoters)
   
 # display graphs in a grid
 grid.arrange(grobs = grobs, ncols = 2)
+```
+
+### Changes in polarization from start to finish
+```{r}
+agents |>
+  filter(model_iteration == 1, model_iteration == max(model_iteration)) |>
+  mutate(politics_score = abs(politics_score)) |>
+  ggplot(aes(x = politics_score, fill = model_iteration)) +
+  geom_density() +
+  theme_test()
 ```
 
 ### Partisanship between voters and non-voters
@@ -222,17 +269,60 @@ agents |>
   mutate(model_iteration = factor(model_iteration)) |>
   ggplot(aes(fill = model_iteration, x = politics_score)) +
   geom_density(alpha = 0.5) +
-  labs(y = "Model Iteration", x = "Politics Score",
-       title = "A Divided People", fill = "Model iteration",
-       subtitle = "Starting and final distribution of politics scores") +
+  labs(y = "Model Iteration", x = "Political Score",
+       title = "An Increasingly Polarized World", 
+       fill = "Model Iteration",
+       subtitle = "Starting and final distribution of political scores") +
   theme_test() +
-  theme(legend.positio = c(.15,.8))
+  theme(legend.position = c(.15,.75)) +
+  theme(
+    panel.grid.major.y = element_line(color = "lightgray", linetype = "dashed")
+  )
+ggsave("plots/polarization_change.png", height = 1000, width = 2000, units = "px")
+```
+
+```{r}
+agents |>
+  filter(model_iteration %in% c(40, max(model_iteration))) |>
+  mutate(model_iteration = factor(model_iteration)) |>
+  ggplot(aes(fill = model_iteration, x = politics_score)) +
+  geom_density(alpha = 0.5) +
+  labs(y = "Model Iteration", x = "Political Score",
+       title = "Stabilization of Politics", 
+       fill = "Model iteration",
+       subtitle = "Polarization changes after the \"equilibrium point\"") +
+  theme_test() +
+  theme(legend.position = c(.15,.75)) +
+  theme(
+    panel.grid.major.y = element_line(color = "lightgray", linetype = "dashed")
+  )
+ggsave("plots/polarization_40.png", height = 1000, width = 2000, units = "px")
+```
+
+### Voter turnout over time in the US
+```{r}
+turnout_vap |>
+  ggplot(aes(x = year, y = turnout_rate)) +
+  geom_line() +
+  geom_point() +
+  ylim(40, 70) +
+  scale_x_continuous(breaks = c(1932, 1940, 1960, 1980, 2000, 2020)) +
+  labs(x = element_blank(), y = "Turnout rate (%)", 
+       title = "US Voter Turnout Rate as a Percentage of Voting-Age Population",
+       subtitle = "(1932-2020)", 
+       caption = "Source: The American Presidency Project") +
+  theme_test() +
+  theme(
+    panel.grid.major.y = element_line(color = "lightgray", linetype = "dashed")
+  )
+ggsave("plots/us_turnout.png", height = 1000, width = 2000, units = "px")
 ```
 
 
 ## Modelling 
 
 ```{r}
+library(gt)
 spec <- linear_reg() |>
   set_engine("lm") |>
   set_mode("regression")
@@ -241,5 +331,42 @@ model_data <- agents |>
   filter(election_year == 1)
 
 # TODO fit model
+model <- linear_reg() |>
+  fit(voted ~ age + is_extreme + race + sex + politics_score + color +
+        education, data = model_data)
+
+terms <- c("Intercept", "Age", "Is Extremist", "Race: Black", "Race: Hispanic",
+           "Race: Other", "Race: White", "Sex: Male", "Political Score",
+           "Party: Red", "Education: High School or Less", 
+           "Education: Some College")
+model_tidy <- tidy(model)
+table <- model_tidy |>
+  select(term, estimate, p.value) |>
+  mutate(
+    term = terms,
+    significance = case_when(
+      p.value < 0.005 ~ "***",
+      p.value < 0.05 ~ "**",
+      p.value < 0.1 ~ "*",
+      T ~ ""
+    )   
+  ) |>
+  gt() |>
+  tab_header(
+    title = "Voter Turnout Model",
+    subtitle = "Predictive strength of agent parameters"
+  ) |>
+  fmt_number(columns = estimate, decimals = 3) |>
+  fmt_scientific(columns = p.value, decimals = 2) |>
+  tab_footnote(footnote = "*: p < 0.1") |>
+  tab_footnote(footnote = "**: p < 0.05") |>
+  tab_footnote(footnote = "***: p < 0.005") |>
+  tab_options(footnotes.multiline = T)
+
+table
+```
+
+```{r}
+gtsave(table, file = "plots/table.png")
 ```
 
