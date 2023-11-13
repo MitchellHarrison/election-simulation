@@ -1,9 +1,0 @@
-\contentsline {section}{\numberline {1}Abstract}{2}{section.1}%
-\contentsline {section}{\numberline {2}Introduction}{2}{section.2}%
-\contentsline {section}{\numberline {3}Literature Review}{4}{section.3}%
-\contentsline {subsection}{\numberline {3.1}Limitations of existing research}{7}{subsection.3.1}%
-\contentsline {section}{\numberline {4}Methodology}{8}{section.4}%
-\contentsline {section}{\numberline {5}Data Presentation}{10}{section.5}%
-\contentsline {section}{\numberline {6}Statistical Modelling}{13}{section.6}%
-\contentsline {section}{\numberline {7}Conclusion}{15}{section.7}%
-\contentsline {subsection}{\numberline {7.1}Future Research}{15}{subsection.7.1}%
