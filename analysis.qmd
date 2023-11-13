@@ -289,7 +289,7 @@ agents |>
   geom_density(alpha = 0.5) +
   labs(y = "Model Iteration", x = "Political Score",
        title = "Stabilization of Politics", 
-       fill = "Model iteration",
+       fill = "Model Iteration",
        subtitle = "Polarization changes after the \"equilibrium point\"") +
   theme_test() +
   theme(legend.position = c(.15,.75)) +
