@@ -2,6 +2,7 @@ import scipy.stats as stats
 import numpy as np
 from agent import Agent
 from election import Election
+np.random.seed(471)
 
 # politics score extremism threshold
 EXTREME_THRESH = 0.25
@@ -223,14 +224,7 @@ class Environment:
 
     # re-calculate an agent's education outcome
     def get_education(self) -> str:
-        edu = "High school or less"
-        p_college = np.random.random()
-        if p_college <= ENROLL_RATE:
-            p_graduated = np.random.random()
-            if p_graduated <= GRAD_RATE:
-                edu = "College graduate"
-            else:
-                edu = "Some college"
+        edu = np.random.choice(EDU_BINS, p = self.education_dist)
         return edu
 
 

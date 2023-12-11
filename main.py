@@ -21,7 +21,9 @@ if database.table_exists(Election):
 
 database.create_tables([Agent, Election], safe = True)
 
+EDU_DIST = [0.3, 0.3, 0.4]
+
 if __name__ == "__main__":
-    env = Environment(pop_size = POP_SIZE)
+    env = Environment(pop_size = POP_SIZE, education_dist = EDU_DIST)
     for _ in range(MAX_ITERATIONS):
         env.iterate()
